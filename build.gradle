@@ -1,0 +1,216 @@
+buildscript {
+repositories {
+  mavenLocal()
+  mavenCentral()
+}
+dependencies {
+  classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.4'
+  // ↑ ローカルリポジトリに pom/jar を登録することで利用できます
+}}
+
+plugins {
+  // id 'com.github.johnrengelman.shadow' version '5.2.4'
+}
+
+def sourceEncoding = 'utf-8'
+def documentEncoding = 'utf-8'
+def env = System.env
+def gver = gradle.gradleVersion
+def osname = System.getProperty('os.name').toLowerCase()
+def osarch = System.getProperty("os.arch")
+
+allprojects {
+apply plugin: 'java'
+sourceSets.main.java.srcDirs = ['src']
+sourceSets.main.resources.srcDirs = ['resources']
+sourceSets.test.java.srcDirs = ['test']
+if (gver < '5.0') {
+  sourceSets.main.output.classesDir = 'build/classes'
+  sourceSets.main.output.resourcesDir = 'build/resources'
+  sourceSets.test.output.classesDir = 'build/test-classes'
+  sourceSets.test.output.resourcesDir = 'build/test-resources'
+}
+repositories {
+  mavenLocal()
+  maven {
+    url "https://plugins.gradle.org/m2/"
+  }    
+  mavenCentral()
+//    jcenter()
+}
+tasks.withType(JavaCompile) {
+  // options.compilerArgs << '-Xlint:unchecked,divzero'
+  options.deprecation = false
+  options.encoding = sourceEncoding
+  doFirst {
+    if (sourceCompatibility == '1.6' && env.JRE4_HOME != null) {
+        options.fork = true
+        if (gver < '5.0')
+          options.bootClasspath = "${env.JRE6_HOME}/lib/rt.jar"
+        else
+          options.bootstrapClasspath = files("${env.JRE6_HOME}/lib/rt.jar")
+    }
+    if (sourceCompatibility == '1.5' && env.JRE4_HOME != null) {
+        options.fork = true
+        if (gver < '5.0')
+          options.bootClasspath = "${env.JRE5_HOME}/lib/rt.jar"
+        else
+          options.bootstrapClasspath = files("${env.JRE5_HOME}/lib/rt.jar")
+    }      
+    else if (sourceCompatibility == '1.4' && env.JRE4_HOME != null) {
+        options.fork = true
+        if (gver < '5.0')
+          options.bootClasspath = "${env.JRE4_HOME}/lib/rt.jar"
+        else
+          options.bootstrapClasspath = files("${env.JRE4_HOME}/lib/rt.jar")
+    }
+    else if (sourceCompatibility == '1.3' && targetCompatibility == '1.1' && env.JDK_HOME != null) {
+        options.fork = true
+        if (gver < '5.0')
+          options.bootClasspath = "${env.JDK_HOME}/lib/classes.zip"
+        else
+          options.bootstrapClasspath = files("${env.JDK_HOME}/lib/classes.zip")
+    }      
+    else if (sourceCompatibility == '1.3' && env.JRE3_HOME != null) {
+        options.fork = true
+        if (gver < '5.0')
+          options.bootClasspath = "${env.JRE3_HOME}/lib/rt.jar"
+        else
+          options.bootstrapClasspath = files("${env.JRE3_HOME}/lib/rt.jar")
+    }
+  }
+}
+javadoc {
+  source = sourceSets.main.allJava
+  classpath = sourceSets.main.compileClasspath
+  options.charSet = documentEncoding
+  options.encoding = sourceEncoding
+  if (env.DEBUG != null) options.memberLevel = JavadocMemberLevel.PACKAGE
+  options.addStringOption('Xdoclint:none','-quiet')
+  if (env.JDK6_HOME != null) executable = file("${env.JDK6_HOME}/bin/javadoc.exe")
+  doLast {
+    println "INFO: open ${project.docsDir}/javadoc/index.html"
+  }
+}
+
+task zipdoc(type: Zip, dependsOn: javadoc) {
+  description 'javadoc を zipでアーカイブする'
+  // ZIP ファイルを出力するディレクトリ
+  destinationDir = file('../apidocs')
+  classifier = "apidoc-" + new Date().format('yyyy-MMdd')
+  extension = 'zip'
+  from "${project.docsDir}/javadoc"
+  excludes = ['build', '.*']
+  doLast {
+    println "INFO: created: ${archivePath}"
+  }
+}
+
+task copylib(type: Copy) {
+  description '依存するライブラリを収集して lib フォルダに格納する'
+// from (configurations.compile + configurations.testCompile)
+from configurations.compile
+into "lib" 
+}}
+
+subprojects {
+  // sourceCompatibility = 1.6
+}
+
+project(':jface3.x') {
+description 'JFace 3/SWT3 を利用するプロジェクト'
+apply plugin: 'com.github.johnrengelman.shadow'
+sourceCompatibility = '1.5'
+version = 'x86_64-3.4.2'
+// Eclipse SDK 3.4.2 に含まれていた swt のバージョンは 3.4.1 だった
+// 以下のバージョンもそのSDKに含まれていたものの組み合わせです
+dependencies {
+  compile 'org.eclipse:org.eclipse.jface:3.4.2'
+  compile 'org.eclipse:org.eclipse.jface.text:3.4.2'
+  compile 'org.eclipse:org.eclipse.text:3.4.0'
+  compile 'org.eclipse:org.eclipse.core.runtime:3.4.0'
+  compile 'org.eclipse:org.eclipse.core.commands:3.4.0'
+  compile 'org.eclipse:org.eclipse.core.jobs:3.4.1'
+  compile 'org.eclipse:org.eclipse.equinox.common:3.4.0'
+  compile 'org.eclipse:org.eclipse.ui.workbench:3.4.2'
+  compile 'org.eclipse:org.eclipse.osgi:3.4.3'
+  if (osname.startsWith('windows')) {
+    if (osarch == 'x86') {
+      compile 'org.eclipse.swt:org.eclipse.swt.win32.win32.x86:3.4.1'
+    }
+    else {
+      compile 'org.eclipse.swt:org.eclipse.swt.win32.win32.x86_64:3.4.1'
+    }
+  }
+  else if(osname.startsWith('mac')) {
+    compile group: 'de.carne.common', name: 'java-swt-cocoa-macosx-x86_64', version: '3.2.0'
+  }
+}}
+
+project(':swt-examples') {
+description 'Eclipse SDK 3.xに含まれるSWTのサンプルコード'
+apply plugin: 'application'
+apply plugin: 'com.github.johnrengelman.shadow'
+mainClassName = 'example'
+sourceCompatibility = '1.4'
+version = '3.1.2'
+dependencies {
+  testCompile 'junit:junit:4.+'
+  compile project(':jface3.x')
+}
+jar {
+  manifest {
+      attributes 'Main-Class': mainClassName
+  }
+}}
+
+
+
+def exampleSrc = file('swt-examples/src')
+def exampleRes = file('swt-examples/resources')
+
+project(':swt-examples3') {
+description 'SWTのサンプルコードをJava'
+apply plugin: 'application'
+apply plugin: 'com.github.johnrengelman.shadow'
+mainClassName = 'example'
+sourceCompatibility = '1.6'
+version = '3.105.3'
+// SWTのバージョンに合わせる
+sourceSets.main.java.srcDirs = [exampleSrc, 'src']
+sourceSets.main.resources.srcDirs = [exampleRes, 'resources']
+dependencies {
+  testCompile 'junit:junit:4.+'
+  implementation 'org.eclipse.platform:org.eclipse.jface:3.12.2'
+}
+configurations.all {
+resolutionStrategy {
+dependencySubstitution {
+    def os = System.getProperty("os.name").toLowerCase()
+    def platformModule = ""
+    def swtpre = "org.eclipse.platform:org.eclipse.swt";
+    def swtfrom = "${swtpre}.\${osgi.platform}";
+    def swtver = "3.105.3";
+    // ↑　jfaceのバージョンに合わせて調整する
+    if (os.contains("windows")) {
+      if (osarch == 'x86') {
+        platformModule = "${swtpre}.win32.win32.x86:${swtver}"
+      }
+      else {
+        platformModule = "${swtpre}.win32.win32.x86_64:${swtver}"
+      }
+    } else if (os.contains("linux")) {
+        platformModule = "${swtpre}.gtk.linux.x86_64:${swtver}"
+    } else if (os.contains("mac")) {
+        platformModule = "${swtpre}.cocoa.macosx.x86_64:${swtver}"
+    }
+    if (platformModule != "")
+      substitute module(swtfrom) with module(platformModule)
+}}}
+
+jar {
+  manifest {
+      attributes 'Main-Class': mainClassName
+  }
+}}
+

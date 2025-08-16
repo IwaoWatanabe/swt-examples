@@ -1,0 +1,4 @@
+
+include ':jface3.x'
+include ':swt-examples'
+include ':swt-examples3'
