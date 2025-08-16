@@ -1,0 +1,14 @@
+org.eclipse.swt.examples.addressbook
+org.eclipse.swt.examples.browserexample
+org.eclipse.swt.examples.clipboard
+org.eclipse.swt.examples.controlexample
+org.eclipse.swt.examples.dnd
+org.eclipse.swt.examples.fileviewer
+org.eclipse.swt.examples.graphics
+org.eclipse.swt.examples.helloworld
+org.eclipse.swt.examples.hoverhelp
+org.eclipse.swt.examples.imageanalyzer
+org.eclipse.swt.examples.javaviewer
+org.eclipse.swt.examples.layoutexample
+org.eclipse.swt.examples.paint
+org.eclipse.swt.examples.texteditor
