@@ -1,0 +1,118 @@
+
+plugins {
+    id 'maven-publish'
+}
+
+// def eclipsePluginsDir = file("/path/to/eclipse/plugins")
+// def eclipsePluginsDir = file("C:\\dd\\eclipse-SDK-3.4.2-win32\\eclipse\\plugins")
+def eclipsePluginsDir = file("C:\\dd\\eclipse-SDK-3.4.2-win32-x86_64\\eclipse\\plugins")
+// ↑　Eclipse SDK の plugins フォルダパスに置き換えること
+
+// 検出ルール
+def targetPatterns = [
+    [
+        regex: ~/org\.eclipse\.jface_(\d+\.\d+\.\d+).*\.jar$/,
+        groupId: "org.eclipse",
+        artifactIdFromName: false,
+        fixedArtifactId: "org.eclipse.jface"
+    ],
+    [
+        regex: ~/org\.eclipse\.jface\.text_(\d+\.\d+\.\d+).*\.jar$/,
+        groupId: "org.eclipse",
+        artifactIdFromName: false,
+        fixedArtifactId: "org.eclipse.jface.text"
+    ],    
+    [
+        regex: ~/org\.eclipse\.text_(\d+\.\d+\.\d+).*\.jar$/,
+        groupId: "org.eclipse",
+        artifactIdFromName: true,
+    ],    
+    [
+        regex: ~/org\.eclipse\.core\.runtime_(\d+\.\d+\.\d+).*\.jar$/,
+        groupId: "org.eclipse",
+        artifactIdFromName: true,
+    ],
+    [
+        regex: ~/org\.eclipse\.core\.jobs_(\d+\.\d+\.\d+).*\.jar$/,
+        groupId: "org.eclipse",
+        artifactIdFromName: true,
+    ],
+    [
+        regex: ~/org\.eclipse\.core\.commands_(\d+\.\d+\.\d+).*\.jar$/,
+        groupId: "org.eclipse",
+        artifactIdFromName: true,
+    ],
+    [
+        regex: ~/org\.eclipse\.equinox\.common_(\d+\.\d+\.\d+).*\.jar$/,
+        groupId: "org.eclipse",
+        artifactIdFromName: true,
+    ],
+    [
+        regex: ~/org\.eclipse\.osgi_(\d+\.\d+\.\d+).*\.jar$/,
+        groupId: "org.eclipse",
+        artifactIdFromName: true,
+    ],    
+    [
+        regex: ~/org\.eclipse\.ui\.workbench_(\d+\.\d+\.\d+).*\.jar$/,
+        groupId: "org.eclipse",
+        artifactIdFromName: true,
+    ],    
+    [
+        regex: ~/org\.eclipse\.swt\..*_(\d+\.\d+\.\d+).*\.jar$/,
+        groupId: "org.eclipse.swt",
+        artifactIdFromName: true
+    ]
+]
+
+def artifactsToInstall = []
+eclipsePluginsDir.eachFileMatch(~/.*\.jar/) { jarFile ->
+    targetPatterns.each { pat ->
+        def m = jarFile.name =~ pat.regex
+        if (m.matches()) {
+            def version = m[0][1] // キャプチャ1がバージョン
+            def artifactId
+            if (pat.artifactIdFromName) {
+                // jar 名からバージョン以降を除去して artifactId に
+                artifactId = jarFile.name.replaceFirst(/_(\d+\.\d+\.\d+).*\.jar$/, "")
+            } else {
+                artifactId = pat.fixedArtifactId
+            }
+            artifactsToInstall << [
+                file: jarFile,
+                groupId: pat.groupId,
+                artifactId: artifactId,
+                version: version
+            ]
+        }
+    }
+}
+
+if (artifactsToInstall.isEmpty()) {
+    throw new GradleException("Eclipse plugins directory ${eclipsePluginsDir} に JFace/SWT の JAR が見つかりませんでした。")
+}
+
+publishing {
+    publications {
+        artifactsToInstall.each { art ->
+            create(art.artifactId, MavenPublication) {
+                groupId = art.groupId
+                artifactId = art.artifactId
+                version = art.version
+                artifact(art.file)
+            }
+        }
+    }
+    repositories {
+        mavenLocal()
+    }
+}
+
+tasks.register("installEclipseArtifacts") {
+    dependsOn tasks.withType(PublishToMavenLocal)
+    doFirst {
+        println "登録対象 JAR:"
+        artifactsToInstall.each { art ->
+            println " - ${art.file.name} → ${art.groupId}:${art.artifactId}:${art.version}"
+        }
+    }
+}
